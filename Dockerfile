@@ -42,30 +42,18 @@ USER agent
 RUN curl -s "https://get.sdkman.io" | bash \
     && bash -c "source /home/agent/.sdkman/bin/sdkman-init.sh"
 
-# Configure SDKMAN in agent's bashrc
+# Configure SDKMAN in agent's bashrc (for interactive sessions)
 RUN echo '' >> /home/agent/.bashrc \
     && echo '# SDKMAN' >> /home/agent/.bashrc \
     && echo 'export SDKMAN_DIR="/home/agent/.sdkman"' >> /home/agent/.bashrc \
-    && echo '[[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"' >> /home/agent/.bashrc \
-    && echo '' >> /home/agent/.bashrc \
-    && echo '# Docker Model Runner environment' >> /home/agent/.bashrc \
-    && echo 'export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://localhost:12434}"' >> /home/agent/.bashrc \
-    && echo 'export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-sk-ant-api03-dmr-placeholder-no-auth-required-for-local-model-runner}"' >> /home/agent/.bashrc \
-    && echo 'export ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-docker.io/ai/qwen3-coder-next:latest}"' >> /home/agent/.bashrc \
-    && echo 'export DISABLE_PROMPT_CACHING="${DISABLE_PROMPT_CACHING:-1}"' >> /home/agent/.bashrc
+    && echo '[[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"' >> /home/agent/.bashrc
 
-# Persist SDKMAN for Claude Code environment (no bash_completion — it breaks the bash tool)
+# Configure sandbox-persistent.sh (sourced by Claude Code's bash tool subprocesses via BASH_ENV).
+# ANTHROPIC_* vars are already ENV-inherited; only NO_PROXY needs explicit clearing here since
+# docker exec injects NO_PROXY=localhost,... but bash subprocesses inherit from the claude wrapper
+# which already unsets it — this is belt-and-suspenders for any bash started outside that chain.
 RUN echo 'export SDKMAN_DIR="/home/agent/.sdkman"' >> /etc/sandbox-persistent.sh \
-    && echo '[[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"' >> /etc/sandbox-persistent.sh
-
-# Persist Docker Model Runner environment variables for Claude Code
-RUN echo '' >> /etc/sandbox-persistent.sh \
-    && echo '# Docker Model Runner environment' >> /etc/sandbox-persistent.sh \
-    && echo 'export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://localhost:12434}"' >> /etc/sandbox-persistent.sh \
-    && echo 'export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-sk-ant-api03-dmr-placeholder-no-auth-required-for-local-model-runner}"' >> /etc/sandbox-persistent.sh \
-    && echo 'export ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-ai/qwen3-coder-next}"' >> /etc/sandbox-persistent.sh \
-    && echo 'export DISABLE_PROMPT_CACHING="${DISABLE_PROMPT_CACHING:-1}"' >> /etc/sandbox-persistent.sh \
-    && echo 'export IS_DEMO="${IS_DEMO:-1}"' >> /etc/sandbox-persistent.sh \
+    && echo '[[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"' >> /etc/sandbox-persistent.sh \
     && echo 'export NO_PROXY=""' >> /etc/sandbox-persistent.sh \
     && echo 'export no_proxy=""' >> /etc/sandbox-persistent.sh
 

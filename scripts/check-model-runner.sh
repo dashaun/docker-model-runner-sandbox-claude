@@ -18,10 +18,11 @@ if [ "$HTTP_CODE" = "000" ]; then
     echo "FAILED: Cannot connect to Docker Model Runner at ${BASE_URL}"
     echo ""
     echo "Troubleshooting:"
-    echo "  1. Ensure Docker Desktop >= 4.58.0 is installed"
+    echo "  1. Ensure Docker Desktop >= 4.40.0 is installed"
     echo "  2. Enable Model Runner: Docker Desktop > Settings > Features in development > Model Runner"
     echo "  3. Pull a model: docker model pull ai/qwen3-coder-next"
-    echo "  4. Verify the container can reach model-runner.docker.internal"
+    echo "  4. On the host, verify DMR is running: curl http://localhost:12434/v1/models"
+    echo "  5. If sandbox proxy is misconfigured: docker sandbox rm <name> && ./run.sh"
     exit 1
 elif [ "$HTTP_CODE" != "200" ]; then
     echo "FAILED: Received HTTP ${HTTP_CODE} from Docker Model Runner"
