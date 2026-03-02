@@ -28,9 +28,9 @@ COPY scripts/entrypoint.sh /usr/local/bin/sandbox-entrypoint
 RUN chmod +x /usr/local/bin/check-model-runner /usr/local/bin/verify-env /usr/local/bin/sandbox-entrypoint
 
 # Docker Model Runner environment defaults
-ENV ANTHROPIC_BASE_URL=http://model-runner.docker.internal
+ENV ANTHROPIC_BASE_URL=http://localhost:12434
 ENV ANTHROPIC_API_KEY=sk-ant-api03-dmr-placeholder-no-auth-required-for-local-model-runner
-ENV ANTHROPIC_MODEL=ai/qwen3-coder-next
+ENV ANTHROPIC_MODEL=docker.io/ai/qwen3-coder-next:latest
 ENV DISABLE_PROMPT_CACHING=1
 ENV IS_DEMO=1
 
@@ -49,9 +49,9 @@ RUN echo '' >> /home/agent/.bashrc \
     && echo '[[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"' >> /home/agent/.bashrc \
     && echo '' >> /home/agent/.bashrc \
     && echo '# Docker Model Runner environment' >> /home/agent/.bashrc \
-    && echo 'export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://model-runner.docker.internal}"' >> /home/agent/.bashrc \
+    && echo 'export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://localhost:12434}"' >> /home/agent/.bashrc \
     && echo 'export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-sk-ant-api03-dmr-placeholder-no-auth-required-for-local-model-runner}"' >> /home/agent/.bashrc \
-    && echo 'export ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-ai/qwen3-coder-next}"' >> /home/agent/.bashrc \
+    && echo 'export ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-docker.io/ai/qwen3-coder-next:latest}"' >> /home/agent/.bashrc \
     && echo 'export DISABLE_PROMPT_CACHING="${DISABLE_PROMPT_CACHING:-1}"' >> /home/agent/.bashrc
 
 # Persist SDKMAN for Claude Code environment (no bash_completion — it breaks the bash tool)
@@ -61,13 +61,26 @@ RUN echo 'export SDKMAN_DIR="/home/agent/.sdkman"' >> /etc/sandbox-persistent.sh
 # Persist Docker Model Runner environment variables for Claude Code
 RUN echo '' >> /etc/sandbox-persistent.sh \
     && echo '# Docker Model Runner environment' >> /etc/sandbox-persistent.sh \
-    && echo 'export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://model-runner.docker.internal}"' >> /etc/sandbox-persistent.sh \
+    && echo 'export ANTHROPIC_BASE_URL="${ANTHROPIC_BASE_URL:-http://localhost:12434}"' >> /etc/sandbox-persistent.sh \
     && echo 'export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY:-sk-ant-api03-dmr-placeholder-no-auth-required-for-local-model-runner}"' >> /etc/sandbox-persistent.sh \
     && echo 'export ANTHROPIC_MODEL="${ANTHROPIC_MODEL:-ai/qwen3-coder-next}"' >> /etc/sandbox-persistent.sh \
     && echo 'export DISABLE_PROMPT_CACHING="${DISABLE_PROMPT_CACHING:-1}"' >> /etc/sandbox-persistent.sh \
-    && echo 'export IS_DEMO="${IS_DEMO:-1}"' >> /etc/sandbox-persistent.sh
+    && echo 'export IS_DEMO="${IS_DEMO:-1}"' >> /etc/sandbox-persistent.sh \
+    && echo 'export NO_PROXY=""' >> /etc/sandbox-persistent.sh \
+    && echo 'export no_proxy=""' >> /etc/sandbox-persistent.sh
 
 # Merge onboarding/auth bypass fields into .claude.json — must be last to win over base image writes
 RUN jq '. + {"hasCompletedOnboarding": true, "primaryApiKey": "sk-ant-api03-dmr-placeholder-no-auth-required-for-local-model-runner"}' \
     /home/agent/.claude.json > /tmp/claude.json \
     && mv /tmp/claude.json /home/agent/.claude.json
+
+# Wrap the claude binary to clear NO_PROXY before startup.
+# Docker Desktop always injects NO_PROXY=localhost,127.0.0.1,::1 into every exec'd
+# process — including the claude agent — which causes localhost:12434 requests to
+# bypass the sandbox proxy and hit the empty sandbox loopback instead of reaching
+# Docker Model Runner. The wrapper unsets NO_PROXY/no_proxy before exec-ing the
+# real binary, so the proxy receives and forwards the request to DMR on the host.
+RUN mv /home/agent/.local/bin/claude /home/agent/.local/bin/claude.real \
+    && printf '#!/bin/sh\nunset NO_PROXY no_proxy\nexec /home/agent/.local/bin/claude.real "$@"\n' \
+       > /home/agent/.local/bin/claude \
+    && chmod +x /home/agent/.local/bin/claude

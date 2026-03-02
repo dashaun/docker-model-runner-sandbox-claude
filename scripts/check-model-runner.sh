@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${ANTHROPIC_BASE_URL:-http://model-runner.docker.internal}"
+BASE_URL="${ANTHROPIC_BASE_URL:-http://localhost:12434}"
 
 echo "Checking Docker Model Runner connectivity..."
 echo "URL: ${BASE_URL}/v1/models"
