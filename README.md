@@ -16,37 +16,35 @@ Docker Model Runner (Docker Desktop 4.40.0+) natively supports the Anthropic Mes
 ## Quick Start
 
 ```bash
-# First time only — builds the image and adds localhost to the global sandbox proxy allowlist
-./run.sh
+# One-time per machine — pulls the image and configures the sandbox proxy
+docker run --rm -v ~/.sandboxd:/sandboxd dashaun/dmr-claude-sandbox setup-host
 ```
 
-After that, use the standard sandbox command from any directory:
+Then from any directory:
 
 ```bash
-docker sandbox run -t dmr-claude-sandbox claude . -- --dangerously-skip-permissions
+docker sandbox run -t dashaun/dmr-claude-sandbox claude . -- --dangerously-skip-permissions
 ```
-
-`./run.sh` is just a convenience wrapper that does the same thing, with auto-build if the image is missing.
 
 ### Changing the model
 
-The model is baked into the image via `ANTHROPIC_MODEL`. To use a different model, update the `ENV ANTHROPIC_MODEL` line in the `Dockerfile`, rebuild, and recreate the sandbox:
+The model is baked into the image via `ANTHROPIC_MODEL`. To use a different model, build your own image:
 
 ```bash
-docker rmi dmr-claude-sandbox
-docker sandbox rm dmr-claude-sandbox
-./run.sh
+git clone https://github.com/dashaun/docker-model-runner-sandbox-claude
+# Edit ENV ANTHROPIC_MODEL in the Dockerfile
+docker build -t my-claude-sandbox .
+docker run --rm -v ~/.sandboxd:/sandboxd my-claude-sandbox setup-host
+docker sandbox run -t my-claude-sandbox claude . -- --dangerously-skip-permissions
 ```
 
 ## How It Works
 
-Docker sandboxes are network-isolated VMs. Reaching Docker Model Runner at `localhost:12434` requires two things that `./run.sh` handles on first setup:
+Docker sandboxes are network-isolated VMs. Reaching Docker Model Runner at `localhost:12434` requires two things:
 
-1. **Proxy allowlist** — adds `localhost` to the sandbox proxy's `allowedDomains` so requests to `localhost:12434` are forwarded to Docker Model Runner on the host instead of being blocked.
+1. **Proxy allowlist** — `setup-host` adds `localhost:12434` to `~/.sandboxd/proxy-config.json`, the global default policy inherited by all new sandboxes. This is a one-time, per-machine step.
 
 2. **NO_PROXY wrapper** — Docker Desktop injects `NO_PROXY=localhost,...` into every exec'd process, which would bypass the proxy for localhost traffic. The image wraps the `claude` binary with a shell script that unsets `NO_PROXY` before launching, routing all traffic through the proxy.
-
-Both settings persist as long as the sandbox exists, so subsequent runs need no extra configuration.
 
 ## What's Included
 
@@ -75,14 +73,17 @@ check-model-runner
 
 ### "Unable to connect to API"
 
-The global sandbox proxy allowlist may be missing `localhost`. Run `./run.sh` once to add it, or add it manually:
+Re-run the setup command to ensure `localhost:12434` is in the proxy allowlist:
 
 ```bash
-# Check
-cat ~/.sandboxd/proxy-config.json | python3 -c "import json,sys; d=json.load(sys.stdin); print('localhost' in d['network']['allowedDomains'])"
+docker run --rm -v ~/.sandboxd:/sandboxd dashaun/dmr-claude-sandbox setup-host
+```
 
-# Fix — run ./run.sh, which adds it automatically
-./run.sh
+Then recreate the sandbox so it picks up the updated policy:
+
+```bash
+docker sandbox rm dmr-claude-sandbox
+docker sandbox run -t dashaun/dmr-claude-sandbox claude . -- --dangerously-skip-permissions
 ```
 
 ### Cannot connect to Docker Model Runner
