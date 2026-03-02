@@ -23,9 +23,8 @@ RUN pip3 install --no-cache-dir --break-system-packages \
 
 # Copy utility scripts
 COPY scripts/check-model-runner.sh /usr/local/bin/check-model-runner
-COPY scripts/verify-env.sh /usr/local/bin/verify-env
 COPY scripts/entrypoint.sh /usr/local/bin/sandbox-entrypoint
-RUN chmod +x /usr/local/bin/check-model-runner /usr/local/bin/verify-env /usr/local/bin/sandbox-entrypoint
+RUN chmod +x /usr/local/bin/check-model-runner /usr/local/bin/sandbox-entrypoint
 
 # Docker Model Runner environment defaults
 ENV ANTHROPIC_BASE_URL=http://localhost:12434
@@ -56,11 +55,6 @@ RUN echo 'export SDKMAN_DIR="/home/agent/.sdkman"' >> /etc/sandbox-persistent.sh
     && echo '[[ -s "$SDKMAN_DIR/bin/sdkman-init.sh" ]] && source "$SDKMAN_DIR/bin/sdkman-init.sh"' >> /etc/sandbox-persistent.sh \
     && echo 'export NO_PROXY=""' >> /etc/sandbox-persistent.sh \
     && echo 'export no_proxy=""' >> /etc/sandbox-persistent.sh
-
-# Merge onboarding/auth bypass fields into .claude.json — must be last to win over base image writes
-RUN jq '. + {"hasCompletedOnboarding": true, "primaryApiKey": "sk-ant-api03-dmr-placeholder-no-auth-required-for-local-model-runner"}' \
-    /home/agent/.claude.json > /tmp/claude.json \
-    && mv /tmp/claude.json /home/agent/.claude.json
 
 # Wrap the claude binary to clear NO_PROXY before startup.
 # Docker Desktop always injects NO_PROXY=localhost,127.0.0.1,::1 into every exec'd

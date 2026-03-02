@@ -16,17 +16,17 @@ Docker Model Runner (Docker Desktop 4.40.0+) natively supports the Anthropic Mes
 ## Quick Start
 
 ```bash
-# First time only — builds the image, creates the sandbox, configures networking
+# First time only — builds the image and adds localhost to the global sandbox proxy allowlist
 ./run.sh
 ```
 
-After the first run, the sandbox persists. Resume it with:
+After that, use the standard sandbox command from any directory:
 
 ```bash
-docker sandbox run dmr-claude-sandbox -- --dangerously-skip-permissions
+docker sandbox run -t dmr-claude-sandbox claude . -- --dangerously-skip-permissions
 ```
 
-Or just use `./run.sh` every time — it detects the existing sandbox and resumes it.
+`./run.sh` is just a convenience wrapper that does the same thing, with auto-build if the image is missing.
 
 ### Changing the model
 
@@ -75,10 +75,13 @@ check-model-runner
 
 ### "Unable to connect to API"
 
-The sandbox proxy may not have `localhost` in its allowlist. Delete the sandbox and re-run `./run.sh` to reconfigure:
+The global sandbox proxy allowlist may be missing `localhost`. Run `./run.sh` once to add it, or add it manually:
 
 ```bash
-docker sandbox rm dmr-claude-sandbox
+# Check
+cat ~/.sandboxd/proxy-config.json | python3 -c "import json,sys; d=json.load(sys.stdin); print('localhost' in d['network']['allowedDomains'])"
+
+# Fix — run ./run.sh, which adds it automatically
 ./run.sh
 ```
 
